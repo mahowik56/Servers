@@ -146,12 +146,11 @@ namespace BitNet
 			this.position += temp_buffer.Length;
 		}
 
-		public void push(byte data)
-		{
-			byte[] temp_buffer = BitConverter.GetBytes(data);
-			temp_buffer.CopyTo(this.buffer, this.position);
-			this.position += sizeof(byte);
-		}
+                public void push(byte data)
+                {
+                        this.buffer[this.position] = data;
+                        this.position += sizeof(byte);
+                }
 
 		public void push(Int16 data)
 		{
