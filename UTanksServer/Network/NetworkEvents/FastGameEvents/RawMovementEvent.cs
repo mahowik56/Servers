@@ -1,59 +1,43 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using MessagePack;
+using UTanksServer;
 using UTanksServer.ECS.Types.Battle;
 using UTanksServer.Network.Simple.Net;
 
 namespace UTanksServer.Network.NetworkEvents.FastGameEvents
 {
+    [MessagePackObject]
     public struct RawMovementEvent : INetSerializable
     {
-        public int packetId;
-        public long PlayerEntityId;
-        public Vector3S position;
-        public Vector3S velocity;
-        public Vector3S angularVelocity;
-        public QuaternionS rotation;
-        public QuaternionS turretRotation;
-        public float WeaponRotation { get; set; } //angle
-        public float TankMoveControl { get; set; }
-        public float TankTurnControl { get; set; }
-        public float WeaponRotationControl { get; set; }
-
-        public int ClientTime { get; set; }
+        [Key(0)] public int packetId;
+        [Key(1)] public long PlayerEntityId;
+        [Key(2)] public Vector3S position;
+        [Key(3)] public Vector3S velocity;
+        [Key(4)] public Vector3S angularVelocity;
+        [Key(5)] public QuaternionS rotation;
+        [Key(6)] public QuaternionS turretRotation;
+        [Key(7)] public float WeaponRotation { get; set; }
+        [Key(8)] public float TankMoveControl { get; set; }
+        [Key(9)] public float TankTurnControl { get; set; }
+        [Key(10)] public float WeaponRotationControl { get; set; }
+        [Key(11)] public int ClientTime { get; set; }
 
         public void Serialize(NetWriter writer)
         {
-            writer.Push(packetId);
-            writer.Push(PlayerEntityId);
-            writer.Push(position);
-            writer.Push(velocity);
-            writer.Push(angularVelocity);
-            writer.Push(rotation);
-            writer.Push(turretRotation);
-            writer.Push(WeaponRotation);
-            writer.Push(TankMoveControl);
-            writer.Push(TankTurnControl);
-            writer.Push(WeaponRotationControl);
-            writer.Push(ClientTime);
+            var bytes = MessagePackSerializer.Serialize(this,
+                MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4Block));
+            writer.buffer.AddRange(bytes);
         }
 
         public void Deserialize(NetReader reader)
         {
-            packetId = (int)reader.ReadInt64();
-            PlayerEntityId = reader.ReadInt64();
-            position = reader.ReadVector3();
-            velocity = reader.ReadVector3();
-            angularVelocity = reader.ReadVector3();
-            rotation = reader.ReadQuaternion3();
-            turretRotation = reader.ReadQuaternion3();
-            WeaponRotation = reader.ReadFloat();
-            TankMoveControl = reader.ReadFloat();
-            TankTurnControl = reader.ReadFloat();
-            WeaponRotationControl = reader.ReadFloat();
-            ClientTime = (int)reader.ReadInt64();
+            var bytes = reader.ReadRemainingBytes();
+            this = MessagePackSerializer.Deserialize<RawMovementEvent>(bytes,
+                MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4Block));
         }
     }
 }

@@ -1,26 +1,27 @@
+using MessagePack;
 using UTanksServer.Network.Simple.Net;
 
 namespace UTanksServer.Network.NetworkEvents.Communications {
+    [MessagePackObject]
     public struct UserLoggedInEvent : INetSerializable {
-        public long uid;
-        public string Username;
-        public long entityId;
-        public long serverTime;
+        [Key(0)] public long uid;
+        [Key(1)] public string Username;
+        [Key(2)] public long entityId;
+        [Key(3)] public long serverTime;
 
         public void Serialize(NetWriter writer)
         {
-            writer.Push(uid);
-            writer.Push(Username);
-            writer.Push(entityId);
-            writer.Push(serverTime);
+            var bytes = MessagePackSerializer.Serialize(this,
+                MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4Block));
+            writer.buffer.AddRange(bytes);
         }
 
         public void Deserialize(NetReader reader)
         {
-            uid = reader.ReadInt64();
-            Username = reader.ReadString();
-            entityId = reader.ReadInt64();
-            serverTime = reader.ReadInt64();
+            var bytes = reader.buffer.ToArray().SubArray(reader.readPos, reader.buffer.Count - reader.readPos);
+            this = MessagePackSerializer.Deserialize<UserLoggedInEvent>(bytes,
+                MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4Block));
+            reader.readPos = reader.buffer.Count;
         }
     }
 }

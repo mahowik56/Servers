@@ -4,6 +4,7 @@ using System.Text;
 using UTanksServer.ECS.Components.Battle.AdditionalLogicComponents;
 using UTanksServer.ECS.Types.Battle;
 using UTanksServer.ECS.Types.Battle.AtomicType;
+using UTanksServer;
 
 namespace UTanksServer.Network.Simple.Net {
     public class NetReader : NetBuffer {
@@ -194,6 +195,13 @@ namespace UTanksServer.Network.Simple.Net {
             {
                 throw new OverflowException("Cannot read Dictionary!");
             }
+        }
+
+        public byte[] ReadRemainingBytes()
+        {
+            var bytes = buffer.ToArray().SubArray(readPos, buffer.Count - readPos);
+            readPos = buffer.Count;
+            return bytes;
         }
     }
 }
