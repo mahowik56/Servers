@@ -15,6 +15,8 @@ namespace UTanksServer.ECS.ECSCore
         public static ECSComponentManager componentManager;
         public static ECSEventManager eventManager;
 
+        private static CancellationTokenSource? _cts;
+
         public static void InitManagerScope()
         {
             entityManager = new ECSEntityManager();
@@ -25,18 +27,21 @@ namespace UTanksServer.ECS.ECSCore
             systemManager = new ECSSystemManager();
             systemManager.InitializeSystems();
             eventManager.InitializeEventManager();
-            Func<Task> asyncSystems = async () =>
+            _cts = new CancellationTokenSource();
+            _ = Task.Run(async () =>
             {
-                await Task.Run(() => {
-                    while(true)
-                    {
-                        systemManager.RunSystems();
-                        Thread.Sleep(5);
-                    }
-                });
-            };
-            asyncSystems();
+                while(!_cts.IsCancellationRequested)
+                {
+                    systemManager.RunSystems();
+                    await Task.Delay(5, _cts.Token);
+                }
+            });
             Logger.Log("ECS managers initialized");
+        }
+
+        public static void StopManagerScope()
+        {
+            _cts?.Cancel();
         }
     }
 }

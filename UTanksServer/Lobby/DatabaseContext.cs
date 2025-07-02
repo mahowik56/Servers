@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Net;
+using System.IO;
 
 using Serilog;
 
@@ -12,20 +13,18 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using UTanksServer.Extensions;
 using UTanksServer.Services.Servers.Game;
 
+using Newtonsoft.Json;
+
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace UTanksServer.Database {
   public class DatabaseContextFactory : IDesignTimeDbContextFactory<DatabaseContext> {
     public DatabaseContext CreateDbContext(string[] args) {
-      return new DatabaseContext(new DatabaseConfig() {
-        Host = "127.0.0.1",
-        Port = 3306,
-        Username = "araumi",
-        Password = "araumi",
-        Database = "araumi",
-        Version = "10.6.4"
-      });
+      string json = File.ReadAllText(Path.Combine("Config", "Database.json"));
+      DatabaseConfig config = JsonConvert.DeserializeObject<DatabaseConfig>(json)!;
+
+      return new DatabaseContext(config);
     }
   }
 

@@ -83,37 +83,30 @@ namespace UTanksServer
 
         public static bool TryEnterWriteLockAwaiter(this ReaderWriterLockSlim readerWriterLockSlim, int timeout)
         {
-            bool executed = false;
-            while (!executed)
+            var spin = new SpinWait();
+            var start = Environment.TickCount;
+            while (Environment.TickCount - start < timeout)
             {
-                try
+                if (!readerWriterLockSlim.IsWriteLockHeld && readerWriterLockSlim.TryEnterWriteLock(0))
                 {
-                    if (!readerWriterLockSlim.IsWriteLockHeld && readerWriterLockSlim.TryEnterWriteLock(timeout))
-                    {
-                        executed = true;
-                        return true;
-                    }
-                    else
-                    {
-                        Thread.Sleep(1);
-                    }
+                    return true;
                 }
-                catch { }
-                
+                spin.SpinOnce();
             }
             return false;
         }
 
         public static bool TryEnterReadLockAwaiter(this ReaderWriterLockSlim readerWriterLockSlim, int timeout)
         {
-            bool executed = false;
-            while (!executed)
+            var spin = new SpinWait();
+            var start = Environment.TickCount;
+            while (Environment.TickCount - start < timeout)
             {
-                if (readerWriterLockSlim.TryEnterReadLock(timeout))
+                if (readerWriterLockSlim.TryEnterReadLock(0))
                 {
-                    executed = true;
                     return true;
                 }
+                spin.SpinOnce();
             }
             return false;
         }

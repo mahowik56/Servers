@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Reflection;
+using Serilog;
 using UTanksServer.ECS.Components.Battle.Bonus;
 using UTanksServer.ECS.ECSCore;
 using UTanksServer.Extensions;
@@ -67,8 +68,15 @@ namespace UTanksServer
         public static List<byte> ConfigFilesZip = new List<byte>();
         public static long hashConfigFilesZip;
 
+        private static SaveService? _saveService;
+        private static CancellationTokenSource? _saveCts;
         static void Main(string[] args)
         {
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Information()
+                .WriteTo.Async(a => a.Console())
+                .CreateLogger();
+
             Console.Title = "Just Tanks Server";
             Console.ForegroundColor = ConsoleColor.Magenta;
             Console.WriteLine(@"
@@ -117,6 +125,9 @@ namespace UTanksServer
             ManagerScope.InitManagerScope();
             InitializeDefaultDataObject.InitializeDataObjects();
             Networking.Start();
+            _saveService = new SaveService();
+            _saveCts = new CancellationTokenSource();
+            _ = _saveService.StartAsync(_saveCts.Token);
             //new UTServer();
 #region ClearScreen
             Func<Task> asyncUpd = async () =>
@@ -155,7 +166,9 @@ namespace UTanksServer
                 {
                     case "exit":
                         Networking.Stop();
-                        return;              
+                        _saveCts?.Cancel();
+                        Log.CloseAndFlush();
+                        return;
                     case "jtserver":
                         if (input.Length >= 2)
                         {
