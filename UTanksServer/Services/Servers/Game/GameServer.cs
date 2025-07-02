@@ -68,19 +68,18 @@ namespace UTanksServer.Services.Servers.Game {
       Socket clientSocket = await _socket.AcceptAsync();
 
       Player player = new Player();
-            //PlayerSocketConnection connection = new PlayerSocketConnection(clientSocket);
+      PlayerSocketConnection connection = new PlayerSocketConnection(clientSocket);
 
-            //player.Connection = connection;
-            //connection.Player = player;
+      player.Connection = connection;
+      connection.Player = player;
 
-            //_clients.Add(connection);
+      _clients.Add(connection);
 
-            //Logger.WithPlayer(connection.Player).Verbose(
-            //  "Accepted socket"
-            //);
+      Logger.WithPlayer(connection.Player).Verbose(
+        "Accepted socket"
+      );
 
-            //return connection;
-            return null;
+      return connection;
     }
   }
 }

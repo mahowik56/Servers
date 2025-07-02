@@ -56,7 +56,7 @@ namespace UTanksServer.ECS.Systems.Battles
             });
             SystemEventHandler.Add(BattleLoadedEvent.Id, new List<Func<ECSEvent, object>>() {
                 (Event) => {
-                    PlayerReadyToBattle(Event as BattleLoadedEvent);
+                    _ = PlayerReadyToBattle(Event as BattleLoadedEvent);
                     Event.eventWatcher.Watchers--;
                     return null;
                 }
@@ -546,14 +546,14 @@ namespace UTanksServer.ECS.Systems.Battles
 
         #region BattleEvents
 
-        public void PlayerReadyToBattle(BattleLoadedEvent battleLoadedEvent)
+        public async Task PlayerReadyToBattle(BattleLoadedEvent battleLoadedEvent)
         {
             var battleEntity = ManagerScope.entityManager.EntityStorage[battleLoadedEvent.BattleId];
             var player = ManagerScope.entityManager.EntityStorage[battleLoadedEvent.EntityOwnerId];
             var teamComp = player.TryGetComponent<TeamComponent>();
             while(teamComp == null)
             {
-                Thread.Sleep(50);
+                await Task.Delay(50);
                 teamComp = player.TryGetComponent<TeamComponent>();
             }
 

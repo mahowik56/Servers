@@ -54,19 +54,15 @@ namespace UTanksServer.ECS.ECSCore
                 return;
             foreach(var SystemPair in SystemsInterestedEntityDatabase)
             {
-                if (Interlocked.Equals(SystemPair.Key.Enabled, true) && Interlocked.Equals(SystemPair.Key.InWork, false) && SystemPair.Key.LastEndExecutionTimestamp + DateTimeExtensions.MillisecondToTicks
-                    (SystemPair.Key.DelayRunMilliseconds) < DateTime.Now.Ticks)
+                if (Interlocked.Equals(SystemPair.Key.Enabled, true) &&
+                    Interlocked.Equals(SystemPair.Key.InWork, false) &&
+                    SystemPair.Key.LastEndExecutionTimestamp + DateTimeExtensions.MillisecondToTicks(SystemPair.Key.DelayRunMilliseconds) < DateTime.Now.Ticks)
                 {
-                    Func<Task> asyncUpd = async () =>
-                    {
-                        SystemPair.Key.InWork = true;
-                        await Task.Run(() => {
-                            SystemPair.Key.Run(SystemsInterestedEntityDatabase[SystemPair.Key].Keys.ToArray());
-                        });
-                    };
-                    asyncUpd();
+                    SystemPair.Key.InWork = true;
+                    SystemPair.Key.Run(SystemsInterestedEntityDatabase[SystemPair.Key].Keys.ToArray());
+                    SystemPair.Key.InWork = false;
                 }
-                    
+
             }
         }
 
