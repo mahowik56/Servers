@@ -1,49 +1,40 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using MessagePack;
+using UTanksServer;
 using UTanksServer.ECS.Types.Battle;
 using UTanksServer.Network.Simple.Net;
 
 namespace UTanksServer.Network.NetworkEvents.FastGameEvents
 {
+    [MessagePackObject]
     public struct RawShotEvent : INetSerializable
     {
-        public int packetId;
-        public long PlayerEntityId;
-        public Vector3S StartGlobalPosition;
-        public QuaternionS StartGlobalRotation;
-        public Vector3S MoveDirectionNormalized;
-        public Dictionary<long, Vector3S> hitList;
-        public Dictionary<long, float> hitDistanceList;
-        public Dictionary<long, float> hitLocalDistanceList;
-        public int ClientTime { get; set; }
+        [Key(0)] public int packetId;
+        [Key(1)] public long PlayerEntityId;
+        [Key(2)] public Vector3S StartGlobalPosition;
+        [Key(3)] public QuaternionS StartGlobalRotation;
+        [Key(4)] public Vector3S MoveDirectionNormalized;
+        [Key(5)] public Dictionary<long, Vector3S> hitList;
+        [Key(6)] public Dictionary<long, float> hitDistanceList;
+        [Key(7)] public Dictionary<long, float> hitLocalDistanceList;
+        [Key(8)] public int ClientTime { get; set; }
 
         public void Serialize(NetWriter writer)
         {
-            writer.Push(packetId);
-            writer.Push(PlayerEntityId);
-            writer.Push(StartGlobalPosition);
-            writer.Push(StartGlobalRotation);
-            writer.Push(MoveDirectionNormalized);
-            writer.Push(hitList, writer.Push, writer.Push);
-            writer.Push(hitDistanceList, writer.Push, writer.Push);
-            writer.Push(hitLocalDistanceList, writer.Push, writer.Push);
-            writer.Push(ClientTime);
+            var bytes = MessagePackSerializer.Serialize(this,
+                MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4Block));
+            writer.buffer.AddRange(bytes);
         }
 
         public void Deserialize(NetReader reader)
         {
-            packetId = (int)reader.ReadInt64();
-            PlayerEntityId = reader.ReadInt64();
-            StartGlobalPosition = reader.ReadVector3();
-            StartGlobalRotation = reader.ReadQuaternion3();
-            MoveDirectionNormalized = reader.ReadVector3();
-            hitList = reader.ReadDictionary(reader.ReadInt64, reader.ReadVector3);
-            hitDistanceList = reader.ReadDictionary(reader.ReadInt64, reader.ReadFloat);
-            hitLocalDistanceList = reader.ReadDictionary(reader.ReadInt64, reader.ReadFloat);
-            ClientTime = (int)reader.ReadInt64();
+            var bytes = reader.ReadRemainingBytes();
+            this = MessagePackSerializer.Deserialize<RawShotEvent>(bytes,
+                MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4Block));
         }
     }
 }

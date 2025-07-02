@@ -1,22 +1,29 @@
+using MessagePack;
+using UTanksServer;
 using UTanksServer.Network.Simple.Net;
 
 namespace UTanksServer.Network.NetworkEvents.PlayerAuth
 {
+    [MessagePackObject]
     public struct GetUserViaUsername : INetSerializable
     {
+        [Key(0)]
         public int packetId;
+        [Key(1)]
         public string Username;
 
         public void Serialize(NetWriter writer)
         {
-            writer.Push(packetId);
-            writer.Push(Username);
+            var bytes = MessagePackSerializer.Serialize(this,
+                MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4Block));
+            writer.buffer.AddRange(bytes);
         }
 
         public void Deserialize(NetReader reader)
         {
-            packetId = (int)reader.ReadInt64();
-            Username = reader.ReadString();
+            var bytes = reader.ReadRemainingBytes();
+            this = MessagePackSerializer.Deserialize<GetUserViaUsername>(bytes,
+                MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4Block));
         }
     }
 }
