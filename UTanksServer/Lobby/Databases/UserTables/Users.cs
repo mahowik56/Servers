@@ -235,5 +235,71 @@ namespace UTanksServer.Database.Databases.UserTables {
                 Logger.LogWarn($"UpdateCrystalls: user '{username}' not found");
         }
 
+        public async Task UpdateRankAsync(string username, int rank)
+        {
+            const string sql =
+                "UPDATE Users SET Rank = @rank WHERE Username = @un COLLATE NOCASE;";
+
+            using var cmd = new SQLiteCommand(sql, UserDatabase.Connection);
+            cmd.Parameters.AddWithValue("@rank", rank);
+            cmd.Parameters.AddWithValue("@un", username);
+
+            if (await cmd.ExecuteNonQueryAsync() == 0)
+                Logger.LogWarn($"UpdateRank: user '{username}' not found");
+        }
+
+        public async Task UpdateScoreAsync(string username, int globalScore, int rankScore)
+        {
+            const string sql =
+                "UPDATE Users SET GlobalScore = @gs, RankScore = @rs WHERE Username = @un COLLATE NOCASE;";
+
+            using var cmd = new SQLiteCommand(sql, UserDatabase.Connection);
+            cmd.Parameters.AddWithValue("@gs", globalScore);
+            cmd.Parameters.AddWithValue("@rs", rankScore);
+            cmd.Parameters.AddWithValue("@un", username);
+
+            if (await cmd.ExecuteNonQueryAsync() == 0)
+                Logger.LogWarn($"UpdateScore: user '{username}' not found");
+        }
+
+        public async Task UpdateLocationAsync(string username, string location)
+        {
+            const string sql =
+                "UPDATE Users SET UserLocation = @loc WHERE Username = @un COLLATE NOCASE;";
+
+            using var cmd = new SQLiteCommand(sql, UserDatabase.Connection);
+            cmd.Parameters.AddWithValue("@loc", location);
+            cmd.Parameters.AddWithValue("@un", username);
+
+            if (await cmd.ExecuteNonQueryAsync() == 0)
+                Logger.LogWarn($"UpdateLocation: user '{username}' not found");
+        }
+
+        public async Task UpdateKarmaAsync(string username, int karma)
+        {
+            const string sql =
+                "UPDATE Users SET Karma = @karma WHERE Username = @un COLLATE NOCASE;";
+
+            using var cmd = new SQLiteCommand(sql, UserDatabase.Connection);
+            cmd.Parameters.AddWithValue("@karma", karma);
+            cmd.Parameters.AddWithValue("@un", username);
+
+            if (await cmd.ExecuteNonQueryAsync() == 0)
+                Logger.LogWarn($"UpdateKarma: user '{username}' not found");
+        }
+
+        public async Task UpdateGarageAsync(string username, string garageJson)
+        {
+            const string sql =
+                "UPDATE Users SET GarageJSONData = @garage WHERE Username = @un COLLATE NOCASE;";
+
+            using var cmd = new SQLiteCommand(sql, UserDatabase.Connection);
+            cmd.Parameters.AddWithValue("@garage", garageJson);
+            cmd.Parameters.AddWithValue("@un", username);
+
+            if (await cmd.ExecuteNonQueryAsync() == 0)
+                Logger.LogWarn($"UpdateGarage: user '{username}' not found");
+        }
+
     }
 }
