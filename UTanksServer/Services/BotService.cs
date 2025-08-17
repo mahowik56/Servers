@@ -21,6 +21,8 @@ namespace UTanksServer.Services
 {
     public static class BotService
     {
+        // Track spawned bot entities by their instance IDs
+        private static readonly ConcurrentDictionary<long, ECSEntity> Bots = new();
         static readonly ConcurrentDictionary<long, ECSEntity> Bots = new ConcurrentDictionary<long, ECSEntity>();
         public static void AddBots(long battleId, long teamId, int count)
         {
@@ -85,7 +87,9 @@ namespace UTanksServer.Services
                     {
                         BattleId = battle.instanceId,
                         TeamInstanceId = teamId,
+
                         TeamInstanceId = team.instanceId,
+
                         EntityOwnerId = entity.instanceId
                     });
                     Thread.Sleep(100);
@@ -93,6 +97,7 @@ namespace UTanksServer.Services
                     {
                         BattleId = battle.instanceId,
                         TeamInstanceId = teamId,
+
                         TeamInstanceId = team.instanceId,
                         EntityOwnerId = entity.instanceId
                     });

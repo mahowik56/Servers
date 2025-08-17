@@ -282,6 +282,7 @@ namespace UTanksServer
                         }
 
 
+
                             Console.WriteLine("bot commands: add <battleId> <teamId> <count>, remove <botId>, list");
                             break;
                         }
@@ -292,10 +293,12 @@ namespace UTanksServer
                             case "add":
                                 if (input.Length < 5)
                                 {
+                                    Console.WriteLine("Syntax: bot add <battleId> <team> <count>");
 
                                     Console.WriteLine("Syntax: bot add <battleId> <team> <count>");
 
                                     Console.WriteLine("Syntax: bot add <battleId> <teamId> <count>");
+
 
                                     break;
                                 }
@@ -323,6 +326,7 @@ namespace UTanksServer
                                         }
                                         teamId = teamPair.Key;
                                     }
+
 
                                     long teamId = long.Parse(input[3]);
                                     int count = int.Parse(input[4]);
