@@ -250,7 +250,7 @@ namespace UTanksServer
                             "\n  addserver - Create login credentials to the DB" +
                             "\n  ld - loadbots" +
                             "\n  lda - loadbotsall" +
-                            "\n  lda - loadbotsall" +
+                            "\n  bot - manage ai bots" +
                             "\n  tb - testbattle" +
                             "\n  JTServer - Modify the JTServer process");
                         break;
@@ -271,6 +271,56 @@ namespace UTanksServer
                             all++;
                         });
                         Console.WriteLine("All online" + all.ToString() + "\nIn battles: " + inbattle.ToString());
+                        break;
+                    case "bot":
+                        if (input.Length < 2)
+                        {
+                            Console.WriteLine("bot commands: add <battleId> <teamId> <count>, remove <botId>, list");
+                            break;
+                        }
+        
+                        switch (input[1].ToLower())
+                        {
+                            case "add":
+                                if (input.Length < 5)
+                                {
+                                    Console.WriteLine("Syntax: bot add <battleId> <teamId> <count>");
+                                    break;
+                                }
+                                try
+                                {
+                                    long battleId = long.Parse(input[2]);
+                                    long teamId = long.Parse(input[3]);
+                                    int count = int.Parse(input[4]);
+                                    BotService.AddBots(battleId, teamId, count);
+                                }
+                                catch
+                                {
+                                    Console.WriteLine("Invalid parameters");
+                                }
+                                break;
+                            case "remove":
+                                if (input.Length < 3)
+                                {
+                                    Console.WriteLine("Syntax: bot remove <botId>");
+                                    break;
+                                }
+                                if (long.TryParse(input[2], out long botId))
+                                {
+                                    if (!BotService.RemoveBot(botId))
+                                        Console.WriteLine("Bot not found");
+                                }
+                                else
+                                    Console.WriteLine("Invalid bot id");
+                                break;
+                            case "list":
+                                foreach (var id in BotService.ListBots())
+                                    Console.WriteLine(id);
+                                break;
+                            default:
+                                Console.WriteLine("bot commands: add <battleId> <teamId> <count>, remove <botId>, list");
+                                break;
+                        }
                         break;
                     case "ld":
                         if (true)
