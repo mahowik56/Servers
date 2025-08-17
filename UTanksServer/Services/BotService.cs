@@ -8,6 +8,10 @@ using UTanksServer.ECS.Components;
 using UTanksServer.ECS.Components.Battle;
 using UTanksServer.ECS.Components.Battle.BattleComponents;
 using UTanksServer.ECS.Components.Battle.BotComponent;
+using UTanksServer.ECS.Components.Battle.Team;
+using UTanksServer.ECS.ECSCore;
+using UTanksServer.ECS.Events.Battle;
+using UTanksServer.ECS.Events.User;
 using UTanksServer.ECS.ECSCore;
 using UTanksServer.ECS.Events.Battle;
 using UTanksServer.ECS.Templates.User;
@@ -25,6 +29,7 @@ namespace UTanksServer.Services
                 Console.WriteLine("battle not found");
                 return;
             }
+            if (!(battle.GetComponent(BattleTeamsComponent.Id) as BattleTeamsComponent).teams.ContainsKey(teamId))
             if (!ManagerScope.entityManager.EntityStorage.TryGetValue(teamId, out var team))
             {
                 Console.WriteLine("team not found");
@@ -32,6 +37,10 @@ namespace UTanksServer.Services
             }
             for (int i = 0; i < count; i++)
             {
+                AddBotInternal(battle, teamId);
+            }
+        }
+        private static void AddBotInternal(ECSEntity battle, long teamId)
                 AddBotInternal(battle, team);
             }
         }
@@ -75,6 +84,7 @@ namespace UTanksServer.Services
                     ManagerScope.eventManager.OnEventAdd(new EnterToBattleEvent()
                     {
                         BattleId = battle.instanceId,
+                        TeamInstanceId = teamId,
                         TeamInstanceId = team.instanceId,
                         EntityOwnerId = entity.instanceId
                     });
@@ -82,6 +92,7 @@ namespace UTanksServer.Services
                     ManagerScope.eventManager.OnEventAdd(new BattleLoadedEvent()
                     {
                         BattleId = battle.instanceId,
+                        TeamInstanceId = teamId,
                         TeamInstanceId = team.instanceId,
                         EntityOwnerId = entity.instanceId
                     });

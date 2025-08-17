@@ -41,6 +41,7 @@ using UTanksServer.ECS.Templates.User;
 using UTanksServer.ECS.Events.Battle;
 using UTanksServer.ECS.Components.Battle.BattleComponents;
 using UTanksServer.ECS.Components.Battle.BotComponent;
+using UTanksServer.ECS.Components.Battle.Team;
 using UTanksServer.ECS.Systems.Battles;
 using UTanksServer.ECS.Systems.User;
 using UTanksServer.ECS.Systems.NetworkUpdatingSystems;
@@ -275,23 +276,57 @@ namespace UTanksServer
                     case "bot":
                         if (input.Length < 2)
                         {
+
+                            Console.WriteLine("bot commands: add <battleId> <team> <count>, remove <botId>, list");
+                            break;
+                        }
+
+
                             Console.WriteLine("bot commands: add <battleId> <teamId> <count>, remove <botId>, list");
                             break;
                         }
         
+
                         switch (input[1].ToLower())
                         {
                             case "add":
                                 if (input.Length < 5)
                                 {
+
+                                    Console.WriteLine("Syntax: bot add <battleId> <team> <count>");
+
                                     Console.WriteLine("Syntax: bot add <battleId> <teamId> <count>");
+
                                     break;
                                 }
                                 try
                                 {
                                     long battleId = long.Parse(input[2]);
+
+                                    string teamArg = input[3];
+                                    int count = int.Parse(input[4]);
+                                    long teamId;
+                                    if (!long.TryParse(teamArg, out teamId))
+                                    {
+                                        if (!ManagerScope.entityManager.EntityStorage.TryGetValue(battleId, out var battle))
+                                        {
+                                            Console.WriteLine("battle not found");
+                                            break;
+                                        }
+                                        var teamsComp = battle.GetComponent<BattleTeamsComponent>();
+                                        string color = teamArg.ToLower() == "solo" ? "dm" : teamArg.ToLower();
+                                        var teamPair = teamsComp.teams.FirstOrDefault(t => t.Value.TeamColor.Equals(color, StringComparison.OrdinalIgnoreCase));
+                                        if (teamPair.Value == null)
+                                        {
+                                            Console.WriteLine("team not found");
+                                            break;
+                                        }
+                                        teamId = teamPair.Key;
+                                    }
+
                                     long teamId = long.Parse(input[3]);
                                     int count = int.Parse(input[4]);
+
                                     BotService.AddBots(battleId, teamId, count);
                                 }
                                 catch
