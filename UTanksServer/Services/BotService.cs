@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Concurrent;
-using System.Threading;
 using System.Linq;
+using System.Threading;
 using UTanksServer.Database;
 using UTanksServer.Database.Databases;
 using UTanksServer.ECS.Components;
@@ -12,8 +12,6 @@ using UTanksServer.ECS.Components.Battle.Team;
 using UTanksServer.ECS.ECSCore;
 using UTanksServer.ECS.Events.Battle;
 using UTanksServer.ECS.Events.User;
-using UTanksServer.ECS.ECSCore;
-using UTanksServer.ECS.Events.Battle;
 using UTanksServer.ECS.Templates.User;
 using UTanksServer.Extensions;
 
@@ -23,7 +21,7 @@ namespace UTanksServer.Services
     {
         // Track spawned bot entities by their instance IDs
         private static readonly ConcurrentDictionary<long, ECSEntity> Bots = new();
-        static readonly ConcurrentDictionary<long, ECSEntity> Bots = new ConcurrentDictionary<long, ECSEntity>();
+
         public static void AddBots(long battleId, long teamId, int count)
         {
             if (!ManagerScope.entityManager.EntityStorage.TryGetValue(battleId, out var battle))
@@ -31,21 +29,19 @@ namespace UTanksServer.Services
                 Console.WriteLine("battle not found");
                 return;
             }
-            if (!(battle.GetComponent(BattleTeamsComponent.Id) as BattleTeamsComponent).teams.ContainsKey(teamId))
+
             if (!ManagerScope.entityManager.EntityStorage.TryGetValue(teamId, out var team))
             {
                 Console.WriteLine("team not found");
                 return;
             }
+
             for (int i = 0; i < count; i++)
             {
-                AddBotInternal(battle, teamId);
-            }
-        }
-        private static void AddBotInternal(ECSEntity battle, long teamId)
                 AddBotInternal(battle, team);
             }
         }
+
         private static void AddBotInternal(ECSEntity battle, ECSEntity team)
         {
             var userNetwork = new Network.Simple.Net.Server.User() { PlayerEntityId = Guid.NewGuid().GuidToLong() };
@@ -86,18 +82,13 @@ namespace UTanksServer.Services
                     ManagerScope.eventManager.OnEventAdd(new EnterToBattleEvent()
                     {
                         BattleId = battle.instanceId,
-                        TeamInstanceId = teamId,
-
                         TeamInstanceId = team.instanceId,
-
                         EntityOwnerId = entity.instanceId
                     });
                     Thread.Sleep(100);
                     ManagerScope.eventManager.OnEventAdd(new BattleLoadedEvent()
                     {
                         BattleId = battle.instanceId,
-                        TeamInstanceId = teamId,
-
                         TeamInstanceId = team.instanceId,
                         EntityOwnerId = entity.instanceId
                     });
@@ -108,6 +99,7 @@ namespace UTanksServer.Services
                 }
             });
         }
+
         public static bool RemoveBot(long botId)
         {
             if (Bots.TryRemove(botId, out var entity))
@@ -127,6 +119,7 @@ namespace UTanksServer.Services
             }
             return false;
         }
+
         public static long[] ListBots()
         {
             return Bots.Keys.ToArray();
