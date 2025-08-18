@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
-using System.Runtime.InteropServices;
+using System.IO;
 using System.Threading;
 using UTanksServer.Database;
 
@@ -9,14 +9,13 @@ namespace UTanksServer.Services
 {
     public static class ServerMonitor
     {
-#if Windows
-        [DllImport("kernel32.dll", SetLastError = true)]
-        static extern bool AllocConsole();
-#endif
         static Thread monitorThread;
+        static Process monitorProcess;
+        static StreamWriter monitorInput;
         static int tickCount;
         public static void Start()
         {
+            StartMonitorConsole();
             monitorThread = new Thread(MonitorLoop)
             {
                 IsBackground = true
@@ -31,9 +30,6 @@ namespace UTanksServer.Services
 
         static void MonitorLoop()
         {
-#if Windows
-            AllocConsole();
-#endif
             var process = Process.GetCurrentProcess();
             var lastCpu = process.TotalProcessorTime;
             var lastTime = DateTime.UtcNow;
@@ -59,12 +55,35 @@ namespace UTanksServer.Services
                     if (pingValues.Any())
                         avgPing = pingValues.Average();
                 }
-                    avgPing = users.Where(u => u.Ping > 0).Average(u => (double)u.Ping);
 
-                Console.Clear();
-                Console.WriteLine($"CPU Load: {cpuUsage:0.0}%");
-                Console.WriteLine($"TPS: {ticks}");
-                Console.WriteLine($"Average Ping: {avgPing:0.0} ms");
+                monitorInput?.WriteLine($"{cpuUsage:0.0}|{ticks}|{avgPing:0.0}");
+            }
+        }
+
+        static void StartMonitorConsole()
+        {
+            try
+            {
+                var assemblyPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ServerMonitorConsole.dll");
+                if (!File.Exists(assemblyPath))
+                {
+                    // fallback for development path
+                    assemblyPath = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "ServerMonitorConsole", "bin", "Debug", "net5.0", "ServerMonitorConsole.dll"));
+                }
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "dotnet",
+                    Arguments = $"\"{assemblyPath}\"",
+                    UseShellExecute = false,
+                    RedirectStandardInput = true,
+                    CreateNoWindow = false
+                };
+                monitorProcess = Process.Start(psi);
+                monitorInput = monitorProcess?.StandardInput;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to start monitor console: {ex.Message}");
             }
         }
     }
