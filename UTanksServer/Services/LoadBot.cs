@@ -6,10 +6,6 @@ using UTanksServer.Network.Simple.Net.Client;
 using UTanksServer.Network.Simple.Net.InternalEvents;
 using UTanksServer.ECS.Types.Battle;
 using UTanksServer.Network.NetworkEvents.FastGameEvents;
-using System.Threading;
-using UTanksServer.Network.Simple.Net.Client;
-using UTanksServer.Network.Simple.Net.InternalEvents;
-using UTanksServer.Database;
 
 namespace UTanksServer.Services
 {
@@ -22,12 +18,30 @@ namespace UTanksServer.Services
         Timer pingTimer;
         Timer moveTimer;
         Timer shootTimer;
+        Timer spamTimer;
 
+        /// <summary>
+        /// Creates a bot that connects to a specific map and performs movement and shooting actions.
+        /// </summary>
         public LoadBot(string mapName)
         {
             this.mapName = mapName;
             client = new Client("127.0.0.1", Networking.Config["Port"].AsInt, OnConnected, () => { });
             client.Connect();
+        }
+
+        /// <summary>
+        /// Creates a bot that only sends heartbeat packets. Useful for load testing without gameplay actions.
+        /// </summary>
+        public LoadBot()
+        {
+            client = new Client("127.0.0.1", Networking.Config["Port"].AsInt, () => { }, () => { });
+            client.Connect();
+            spamTimer = new Timer(_ =>
+            {
+                if (client.Connected)
+                    client.emit(new HeartBeat { id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() });
+            }, null, 0, 100);
         }
 
         void OnConnected()
@@ -99,25 +113,8 @@ namespace UTanksServer.Services
             pingTimer?.Dispose();
             moveTimer?.Dispose();
             shootTimer?.Dispose();
-        Client client;
-        Timer spamTimer;
-
-        public LoadBot()
-        {
-            client = new Client("127.0.0.1", Networking.Config["Port"].AsInt,
-                () => { }, () => { });
-            client.Connect();
-            spamTimer = new Timer(_ =>
-            {
-                if (client.Connected)
-                    client.emit(new HeartBeat() { id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() });
-            }, null, 0, 100);
-        }
-
-        public void Stop()
-        {
             spamTimer?.Dispose();
-            client.Disconnect();
+            client?.Disconnect();
         }
     }
 }
