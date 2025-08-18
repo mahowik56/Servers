@@ -10,6 +10,7 @@ using UTanksServer.Database;
 using System.Collections.Concurrent;
 using Assets.ClientCore.CoreImpl.Network.NetworkEvents.GameData;
 using BitNet;
+using UTanksServer.Services;
 
 namespace UTanksServer.Network.Simple.Net.Server {
     public class User : IPeer
@@ -23,8 +24,8 @@ namespace UTanksServer.Network.Simple.Net.Server {
         public bool SocketClosed;
         public int errorCount;//after no error - clear
         public Timer heartBeat;
-        long pingId = 0;
-        long lastResponsesPingId = 0;
+        long lastPingSent = 0;
+        public long Ping { get; private set; }
 
         public RSADecryptComponent RSADecryptionComponent = new RSADecryptComponent();
         public RSAEncryptCompoenent RSAEncryptionComponent; // Defined in Authenticator.Process => user.on<RSAPublicKey>
@@ -58,23 +59,16 @@ namespace UTanksServer.Network.Simple.Net.Server {
             this.token = token;
             this.token.set_peer(this);
             this.token.disable_auto_heartbeat();
-            #region old
-            //buffer = new byte[server.bufferSize];
-
-            //try { socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, OnReceive, socket); }
-            //catch (Exception err) { /* TODO, make a dynamic class for logger (to autoswitch from TXServer.Logger and TXDatabase.Logger)*/ Console.WriteLine(err.ToString(), "Net"); }
-            //on<HeartBeat>((HeartBeat packet) => lastResponsesPingId = packet.id);
-            //heartBeat = new Timer(
-            //    what => {
-            //        //if (pingId == lastResponsesPingId)
-            //            emit(new HeartBeat(){ id = ++pingId });
-            //        //else server.Close(this);
-            //    },
-            //    null,
-            //    10000,
-            //    10000
-            //);
-            #endregion
+            on<HeartBeat>((HeartBeat packet) =>
+            {
+                if (packet.id == lastPingSent)
+                    Ping = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - packet.id;
+            });
+            heartBeat = new Timer(_ =>
+            {
+                lastPingSent = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                emit(new HeartBeat() { id = lastPingSent });
+            }, null, 1000, 1000);
         }
 
         void IPeer.on_message(CPacket msg)
@@ -110,6 +104,7 @@ namespace UTanksServer.Network.Simple.Net.Server {
 
             //Array.Copy(buffer, newBuffer, newBuffer.Length);
             userPackets++;
+            ServerMonitor.RegisterTick();
             SocketClosed = false;
             NetReader reader = new NetReader(newBuffer);
 
