@@ -38,6 +38,8 @@ namespace UTanksServer.Network.Simple.Net.Server {
         public int emitPackets = 0;
         public int GameDataEvents = 0;
         public int UpdateSerialization = 0;
+        public long bytesReceived = 0;
+        public long bytesSent = 0;
         public JSONNode this[string index] {
             get => data[index];
             set => data[index] = value;
@@ -104,6 +106,7 @@ namespace UTanksServer.Network.Simple.Net.Server {
 
             //Array.Copy(buffer, newBuffer, newBuffer.Length);
             userPackets++;
+            bytesReceived += newBuffer.Length;
             ServerMonitor.RegisterTick();
             SocketClosed = false;
             NetReader reader = new NetReader(newBuffer);
@@ -154,13 +157,11 @@ namespace UTanksServer.Network.Simple.Net.Server {
 
             Type eventType = HashCache.GetType(reader.hashCode);
             if (eventType == null) {
-                Console.WriteLine($"ERR: Unknown event code [hash: {reader.hashCode}]");
                 //try { socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, OnReceive, socket); }
                 //catch { return; }
                 return;
             }
             if (!Events.ContainsKey(reader.hashCode)) {
-                Console.WriteLine($"ERR: Got packet with no callback [name: {eventType.Name}, hash: {reader.hashCode}]");
                 //try { socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, OnReceive, socket); }
                 //catch { return; }
                 return;
@@ -179,13 +180,14 @@ namespace UTanksServer.Network.Simple.Net.Server {
                 ((Action<object>)eventHandler)(packetInstance);
             else if (callbackType == typeof(Action<User, object>))
                 ((Action<User, object>)eventHandler)(this, packetInstance);
-            else Console.WriteLine($"Got unknown event callback for packet! [name: {eventType.Name}, hash: {reader.hashCode}, callback: {eventHandler}]");
+            else { }
         }
 
         private void typedEmit(INetSerializable packet, NetWriter writer)
         {
             emitPackets++;
             var byteBuffer = new List<byte>(writer.ToByteArray());
+            bytesSent += byteBuffer.Count;
             int position = 0;
             if (SocketClosed)
                 return;

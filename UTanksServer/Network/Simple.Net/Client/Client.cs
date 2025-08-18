@@ -174,11 +174,9 @@ namespace UTanksServer.Network.Simple.Net.Client {
 
             Type eventType = HashCache.GetType(reader.hashCode);
             if (eventType == null) {
-                Console.WriteLine($"ERR: Unknown event code [hash: {reader.hashCode}]");
                 return;
             }
             if (!Events.ContainsKey(reader.hashCode)) {
-                Console.WriteLine($"ERR: Got packet with no callback [name: {eventType.Name}, hash: {reader.hashCode}]");
                 return;
             }
 
@@ -195,7 +193,7 @@ namespace UTanksServer.Network.Simple.Net.Client {
                 ((Action<object>)eventHandler)(packetInstance);
             else if (callbackType == typeof(Action<Client, object>))
                 ((Action<Client, object>)eventHandler)(this, packetInstance);
-            else Console.WriteLine($"Got unknown event callback for packet! [name: {eventType.Name}, hash: {reader.hashCode}, callback: {eventHandler}]");
+            else { }
 
         }
 

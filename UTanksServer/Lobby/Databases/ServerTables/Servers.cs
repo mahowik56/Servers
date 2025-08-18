@@ -4,6 +4,7 @@ using System.Data.Common;
 using System.Data.SQLite;
 using System.Threading.Tasks;
 using Core;
+using UTanksServer.Services;
 
 namespace UTanksServer.Database.Databases.ServerTables
 {
@@ -19,7 +20,10 @@ namespace UTanksServer.Database.Databases.ServerTables
                 "  `token` TEXT NOT NULL COLLATE NOCASE," +
                 "  `addresses` TEXT NOT NULL COLLATE NOCASE" +
                 ");", ServerDatabase.Connection))
+            {
+                ServerMonitor.RegisterDbWrite();
                 await request.ExecuteNonQueryAsync();
+            }
             Logger.Log("Table 'ServerDatabase.servers' initilized", "init");
             return this;
         }
@@ -31,6 +35,7 @@ namespace UTanksServer.Database.Databases.ServerTables
                 ServerDatabase.Connection
             ))
             {
+                ServerMonitor.RegisterDbRead();
                 DbDataReader response = await request.ExecuteReaderAsync(CommandBehavior.SingleRow);
                 if (!response.HasRows)
                     return ServerRow.Empty;
@@ -61,7 +66,11 @@ namespace UTanksServer.Database.Databases.ServerTables
                 $" addresses = '{data.addresses}'" +
                 $" WHERE uid = {data.uid};",
                 ServerDatabase.Connection
-            )) return await request.ExecuteNonQueryAsync() > 0;
+            ))
+            {
+                ServerMonitor.RegisterDbWrite();
+                return await request.ExecuteNonQueryAsync() > 0;
+            }
         }
 
         public async Task<bool> Create(ServerRow data)
@@ -74,7 +83,11 @@ namespace UTanksServer.Database.Databases.ServerTables
                 $" '{data.addresses}'" +
                 $");",
                 ServerDatabase.Connection
-            )) return await request.ExecuteNonQueryAsync() > 0;
+            ))
+            {
+                ServerMonitor.RegisterDbWrite();
+                return await request.ExecuteNonQueryAsync() > 0;
+            }
         }
     }
 }
