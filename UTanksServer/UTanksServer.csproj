@@ -70,6 +70,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\ServerMonitorConsole\ServerMonitorConsole.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Folder Include="ECS\DataAccumulationSystem\" />
     <Folder Include="ECS\ComponentsWithLogic\" />
     <Folder Include="ECS\Events\Lobby\" />
