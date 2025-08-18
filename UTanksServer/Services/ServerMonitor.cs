@@ -59,6 +59,7 @@ namespace UTanksServer.Services
                     if (pingValues.Any())
                         avgPing = pingValues.Average();
                 }
+                    avgPing = users.Where(u => u.Ping > 0).Average(u => (double)u.Ping);
 
                 Console.Clear();
                 Console.WriteLine($"CPU Load: {cpuUsage:0.0}%");

@@ -274,6 +274,12 @@ namespace UTanksServer
                         });
                         Console.WriteLine("All online" + all.ToString() + "\nIn battles: " + inbattle.ToString());
                         break;
+
+                    case "bot":
+                        if (input.Length < 2)
+                        {
+                            Console.WriteLine("bot commands: add <battleId> <team> <count>, remove <botId>, list");
+
                     case "bots":
                         if (input.Length < 2)
                         {
@@ -303,6 +309,7 @@ namespace UTanksServer
                         if (input.Length < 2)
                         {
                             Console.WriteLine("bot commands: add <battleId> <team|teamId> <count>, remove <botId>, list");
+
                             break;
                         }
 
@@ -311,7 +318,11 @@ namespace UTanksServer
                             case "add":
                                 if (input.Length < 5)
                                 {
+
+                                    Console.WriteLine("Syntax: bot add <battleId> <team> <count>");
+
                                     Console.WriteLine("Syntax: bot add <battleId> <team|teamId> <count>");
+
                                     break;
                                 }
                                 try
@@ -364,7 +375,11 @@ namespace UTanksServer
                                     Console.WriteLine(id);
                                 break;
                             default:
+
+                                Console.WriteLine("bot commands: add <battleId> <teamId> <count>, remove <botId>, list");
+
                                 Console.WriteLine("bot commands: add <battleId> <team|teamId> <count>, remove <botId>, list");
+
                                 break;
                         }
                         break;
