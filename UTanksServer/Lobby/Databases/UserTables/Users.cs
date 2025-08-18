@@ -5,6 +5,7 @@ using System.Data.SQLite;
 using System.Data;
 using System.Data.Common;
 using Core;
+using UTanksServer.Services;
 
 namespace UTanksServer.Database.Databases.UserTables {
     public class Users {
@@ -15,7 +16,10 @@ namespace UTanksServer.Database.Databases.UserTables {
         public async Task<Users> Init() {
             using (SQLiteCommand request = new SQLiteCommand(
                 DatabaseQuery.CreateUsers + DatabaseQuery.CreateKarma + DatabaseQuery.CreateNews + DatabaseQuery.CreateMapList + DatabaseQuery.CreateBattleModes + DatabaseQuery.CreateMapVariants + DatabaseQuery.CreateLogs + DatabaseQuery.CreateInvites + DatabaseQuery.CreateFriends, UserDatabase.Connection))
+            {
+                ServerMonitor.RegisterDbWrite();
                 await request.ExecuteNonQueryAsync();
+            }
             Logger.Log("Table 'UserDatabase.users` initilized", "UserDB");
             return this;
         }
@@ -25,6 +29,7 @@ namespace UTanksServer.Database.Databases.UserTables {
                 $"SELECT id FROM Users WHERE Username = '{username}' COLLATE NOCASE;",
                 UserDatabase.Connection
             )) {
+                ServerMonitor.RegisterDbRead();
                 DbDataReader response = await request.ExecuteReaderAsync(CommandBehavior.SingleRow);
                 bool result = !response.HasRows;
                 await response.CloseAsync();
@@ -67,6 +72,7 @@ namespace UTanksServer.Database.Databases.UserTables {
                 $"INSERT INTO Users(Username, Password, Email, HardwareId, HardwareToken, GarageJSONData, RegistrationDate) VALUES('{username}', '{hashedPassword}', '{email}', '{hardwareId}', '{token}', '{DatabaseQuery.NewbieAccountGarage}', '{DateTime.Now.Ticks}');",
                 UserDatabase.Connection
             )) {
+                ServerMonitor.RegisterDbWrite();
                 await request.ExecuteNonQueryAsync();
 
                 return await GetUserViaCallsign(username);
@@ -78,6 +84,7 @@ namespace UTanksServer.Database.Databases.UserTables {
                 $"SELECT * FROM Users WHERE Username = '{username}'",
                 UserDatabase.Connection
             )) {
+                ServerMonitor.RegisterDbRead();
                 using (DbDataReader response = await request.ExecuteReaderAsync(CommandBehavior.SingleRow)) {
                     Dictionary<string, object> result = new Dictionary<string, object>();
                     if (!response.HasRows) {
@@ -159,6 +166,7 @@ namespace UTanksServer.Database.Databases.UserTables {
                 UserDatabase.Connection
             )) {
                 Queue<string> result = new Queue<string>();
+                ServerMonitor.RegisterDbRead();
                 DbDataReader response = await request.ExecuteReaderAsync(CommandBehavior.Default);
 
                 while (response.HasRows) {
@@ -178,7 +186,11 @@ namespace UTanksServer.Database.Databases.UserTables {
             using (SQLiteCommand request = new SQLiteCommand(
                 $"UPDATE Users SET Username = '{newUsername}' WHERE id = {uid}",
                 UserDatabase.Connection
-            )) return await request.ExecuteNonQueryAsync() > 0;
+            ))
+            {
+                ServerMonitor.RegisterDbWrite();
+                return await request.ExecuteNonQueryAsync() > 0;
+            }
         }
 
         public async Task<bool> SetHashedPassword(long uid, string hashedPassword) {
@@ -187,7 +199,11 @@ namespace UTanksServer.Database.Databases.UserTables {
             using (SQLiteCommand request = new SQLiteCommand(
                 $"UPDATE Users SET Password = '{hashedPassword}' WHERE id = {uid}",
                 UserDatabase.Connection
-            )) return await request.ExecuteNonQueryAsync() > 0;
+            ))
+            {
+                ServerMonitor.RegisterDbWrite();
+                return await request.ExecuteNonQueryAsync() > 0;
+            }
         }
 
         // Will set the emailVerified = false
@@ -195,14 +211,22 @@ namespace UTanksServer.Database.Databases.UserTables {
             using (SQLiteCommand request = new SQLiteCommand(
                 $"UPDATE Users SET Email = '{email}', EmailVerified = 0 WHERE id = {uid}",
                 UserDatabase.Connection
-            )) return await request.ExecuteNonQueryAsync() > 0;
+            ))
+            {
+                ServerMonitor.RegisterDbWrite();
+                return await request.ExecuteNonQueryAsync() > 0;
+            }
         }
 
         public async Task<bool> SetEmailVerified(long uid, bool value) {
             using (SQLiteCommand request = new SQLiteCommand(
                 $"UPDATE Users SET EmailVerified = {(value ? 1 : 0)} WHERE id = {uid}",
                 UserDatabase.Connection
-            )) return await request.ExecuteNonQueryAsync() > 0;
+            ))
+            {
+                ServerMonitor.RegisterDbWrite();
+                return await request.ExecuteNonQueryAsync() > 0;
+            }
         }
 
         public async Task<bool> SetHardwareId(long uid, string hardwareId) {
@@ -210,7 +234,11 @@ namespace UTanksServer.Database.Databases.UserTables {
             using (SQLiteCommand request = new SQLiteCommand(
                 $"UPDATE Users SET HardwareId = '{hardwareId}' WHERE id = {uid}",
                 UserDatabase.Connection
-            )) return await request.ExecuteNonQueryAsync() > 0;
+            ))
+            {
+                ServerMonitor.RegisterDbWrite();
+                return await request.ExecuteNonQueryAsync() > 0;
+            }
         }
 
         public async Task<bool> SetRememberMe(long uid, string hardwareId, string token) {
@@ -218,7 +246,11 @@ namespace UTanksServer.Database.Databases.UserTables {
             using (SQLiteCommand request = new SQLiteCommand(
                 $"UPDATE Users SET HardwareId = '{hardwareId}', HardwareToken = '{token}' WHERE id = {uid};",
                 UserDatabase.Connection
-            )) return await request.ExecuteNonQueryAsync() > 0;
+            ))
+            {
+                ServerMonitor.RegisterDbWrite();
+                return await request.ExecuteNonQueryAsync() > 0;
+            }
         }
 
         // Users.cs (у тому ж класі, де LoginCheck, UsernameAvailable ...)
@@ -231,6 +263,7 @@ namespace UTanksServer.Database.Databases.UserTables {
             cmd.Parameters.AddWithValue("@cr", crystalls);
             cmd.Parameters.AddWithValue("@un", username);
 
+            ServerMonitor.RegisterDbWrite();
             if (await cmd.ExecuteNonQueryAsync() == 0)
                 Logger.LogWarn($"UpdateCrystalls: user '{username}' not found");
         }
@@ -244,6 +277,7 @@ namespace UTanksServer.Database.Databases.UserTables {
             cmd.Parameters.AddWithValue("@rank", rank);
             cmd.Parameters.AddWithValue("@un", username);
 
+            ServerMonitor.RegisterDbWrite();
             if (await cmd.ExecuteNonQueryAsync() == 0)
                 Logger.LogWarn($"UpdateRank: user '{username}' not found");
         }
@@ -258,6 +292,7 @@ namespace UTanksServer.Database.Databases.UserTables {
             cmd.Parameters.AddWithValue("@rs", rankScore);
             cmd.Parameters.AddWithValue("@un", username);
 
+            ServerMonitor.RegisterDbWrite();
             if (await cmd.ExecuteNonQueryAsync() == 0)
                 Logger.LogWarn($"UpdateScore: user '{username}' not found");
         }
@@ -271,6 +306,7 @@ namespace UTanksServer.Database.Databases.UserTables {
             cmd.Parameters.AddWithValue("@loc", location);
             cmd.Parameters.AddWithValue("@un", username);
 
+            ServerMonitor.RegisterDbWrite();
             if (await cmd.ExecuteNonQueryAsync() == 0)
                 Logger.LogWarn($"UpdateLocation: user '{username}' not found");
         }
@@ -284,6 +320,7 @@ namespace UTanksServer.Database.Databases.UserTables {
             cmd.Parameters.AddWithValue("@karma", karma);
             cmd.Parameters.AddWithValue("@un", username);
 
+            ServerMonitor.RegisterDbWrite();
             if (await cmd.ExecuteNonQueryAsync() == 0)
                 Logger.LogWarn($"UpdateKarma: user '{username}' not found");
         }
@@ -297,6 +334,7 @@ namespace UTanksServer.Database.Databases.UserTables {
             cmd.Parameters.AddWithValue("@garage", garageJson);
             cmd.Parameters.AddWithValue("@un", username);
 
+            ServerMonitor.RegisterDbWrite();
             if (await cmd.ExecuteNonQueryAsync() == 0)
                 Logger.LogWarn($"UpdateGarage: user '{username}' not found");
         }

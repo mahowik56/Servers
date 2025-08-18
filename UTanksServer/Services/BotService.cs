@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Concurrent;
-using System.Threading;
-using System.Linq;
 using System.Linq;
 using System.Threading;
 using UTanksServer.Database;
@@ -23,6 +21,7 @@ namespace UTanksServer.Services
     {
         // Track spawned bot entities by their instance IDs
         private static readonly ConcurrentDictionary<long, ECSEntity> Bots = new();
+
         public static void AddBots(long battleId, long teamId, int count)
         {
             if (!ManagerScope.entityManager.EntityStorage.TryGetValue(battleId, out var battle))
@@ -31,21 +30,18 @@ namespace UTanksServer.Services
                 return;
             }
 
-            if (!(battle.GetComponent(BattleTeamsComponent.Id) as BattleTeamsComponent).teams.ContainsKey(teamId))
-
+            var teamsComp = battle.GetComponent(BattleTeamsComponent.Id) as BattleTeamsComponent;
+            if (teamsComp == null || !teamsComp.teams.ContainsKey(teamId))
+            {
+                Console.WriteLine("team not found in battle");
+                return;
+            }
 
             if (!ManagerScope.entityManager.EntityStorage.TryGetValue(teamId, out var team))
-
             {
                 Console.WriteLine("team not found");
                 return;
             }
-            for (int i = 0; i < count; i++)
-            {
-                AddBotInternal(battle, teamId);
-            }
-        }
-        private static void AddBotInternal(ECSEntity battle, long teamId)
 
             for (int i = 0; i < count; i++)
             {
@@ -93,7 +89,6 @@ namespace UTanksServer.Services
                     ManagerScope.eventManager.OnEventAdd(new EnterToBattleEvent()
                     {
                         BattleId = battle.instanceId,
-                        TeamInstanceId = teamId,
                         TeamInstanceId = team.instanceId,
                         EntityOwnerId = entity.instanceId
                     });
@@ -101,7 +96,6 @@ namespace UTanksServer.Services
                     ManagerScope.eventManager.OnEventAdd(new BattleLoadedEvent()
                     {
                         BattleId = battle.instanceId,
-                        TeamInstanceId = teamId,
                         TeamInstanceId = team.instanceId,
                         EntityOwnerId = entity.instanceId
                     });

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UTanksServer.Services;
 
 namespace UTanksServer.Database
 {
@@ -197,6 +198,7 @@ CREATE TABLE IF NOT EXISTS ""Friends"" (
             SQLiteCommand command = new SQLiteCommand();
             command.Connection = connection;
             command.CommandText = query;
+            ServerMonitor.RegisterDbRead();
             using (SQLiteDataReader reader = command.ExecuteReader())
             {
                 if (reader.HasRows)
@@ -221,6 +223,7 @@ CREATE TABLE IF NOT EXISTS ""Friends"" (
             SQLiteCommand command = new SQLiteCommand();
             command.Connection = connection;
             command.CommandText = query;
+            ServerMonitor.RegisterDbWrite();
             command.ExecuteNonQuery();
         }
     }

@@ -6,6 +6,7 @@ using System.Data;
 using System.Data.Common;
 using Core;
 using UTanksServer.Network.NetworkEvents.PlayerSettings;
+using UTanksServer.Services;
 
 namespace UTanksServer.Database.Databases.UserTables
 {
@@ -36,6 +37,7 @@ namespace UTanksServer.Database.Databases.UserTables
                 UserDatabase.Connection
             ))
             {
+                ServerMonitor.RegisterDbRead();
                 DbDataReader response = await request.ExecuteReaderAsync(CommandBehavior.SingleRow);
 
                 if (response.HasRows)
@@ -58,9 +60,13 @@ namespace UTanksServer.Database.Databases.UserTables
                 using (SQLiteCommand setRequest = new SQLiteCommand(
                     $"INSERT INTO `user-settings`(uid, premiumExpiration) VALUES({uid}, '{DateTime.MinValue.Ticks}')",
                     UserDatabase.Connection
-                )) await setRequest.ExecuteNonQueryAsync();
+                )) {
+                    ServerMonitor.RegisterDbWrite();
+                    await setRequest.ExecuteNonQueryAsync();
+                }
 
                 // Then get again
+                ServerMonitor.RegisterDbRead();
                 response = await request.ExecuteReaderAsync(CommandBehavior.SingleRow);
                 if (response.HasRows)
                 {
@@ -88,7 +94,11 @@ namespace UTanksServer.Database.Databases.UserTables
             using (SQLiteCommand request = new SQLiteCommand(
                 $"UPDATE `user-settings` SET countryCode = '{countryCode}' WHERE uid = {uid}",
                 UserDatabase.Connection
-            )) return await request.ExecuteNonQueryAsync() > 0;
+            ))
+            {
+                ServerMonitor.RegisterDbWrite();
+                return await request.ExecuteNonQueryAsync() > 0;
+            }
         }
 
         public async Task<bool> SetAvatar(long uid, string avatar)
@@ -98,7 +108,11 @@ namespace UTanksServer.Database.Databases.UserTables
             using (SQLiteCommand request = new SQLiteCommand(
                 $"UPDATE `user-settings` SET avatar = '{avatar}' WHERE uid = {uid}",
                 UserDatabase.Connection
-            )) return await request.ExecuteNonQueryAsync() > 0;
+            ))
+            {
+                ServerMonitor.RegisterDbWrite();
+                return await request.ExecuteNonQueryAsync() > 0;
+            }
         }
 
         public async Task<bool> SetPremiumExpiration(long uid, long utcTicks)
@@ -106,7 +120,11 @@ namespace UTanksServer.Database.Databases.UserTables
             using (SQLiteCommand request = new SQLiteCommand(
                 $"UPDATE `user-settings` SET premiumExpiration = '{utcTicks}' WHERE uid = {uid}",
                 UserDatabase.Connection
-            )) return await request.ExecuteNonQueryAsync() > 0;
+            ))
+            {
+                ServerMonitor.RegisterDbWrite();
+                return await request.ExecuteNonQueryAsync() > 0;
+            }
         }
 
         public async Task<bool> SetSubscribedState(long uid, bool value)
@@ -114,7 +132,11 @@ namespace UTanksServer.Database.Databases.UserTables
             using (SQLiteCommand request = new SQLiteCommand(
                 $"UPDATE `user-settings` SET subscribed = {(value ? 1 : 0)} WHERE uid = {uid}",
                 UserDatabase.Connection
-            )) return await request.ExecuteNonQueryAsync() > 0;
+            ))
+            {
+                ServerMonitor.RegisterDbWrite();
+                return await request.ExecuteNonQueryAsync() > 0;
+            }
         }
     }
 }

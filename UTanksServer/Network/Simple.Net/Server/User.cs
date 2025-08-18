@@ -38,6 +38,8 @@ namespace UTanksServer.Network.Simple.Net.Server {
         public int emitPackets = 0;
         public int GameDataEvents = 0;
         public int UpdateSerialization = 0;
+        public long bytesReceived = 0;
+        public long bytesSent = 0;
         public JSONNode this[string index] {
             get => data[index];
             set => data[index] = value;
@@ -104,6 +106,7 @@ namespace UTanksServer.Network.Simple.Net.Server {
 
             //Array.Copy(buffer, newBuffer, newBuffer.Length);
             userPackets++;
+            bytesReceived += newBuffer.Length;
             ServerMonitor.RegisterTick();
             SocketClosed = false;
             NetReader reader = new NetReader(newBuffer);
@@ -184,6 +187,7 @@ namespace UTanksServer.Network.Simple.Net.Server {
         {
             emitPackets++;
             var byteBuffer = new List<byte>(writer.ToByteArray());
+            bytesSent += byteBuffer.Count;
             int position = 0;
             if (SocketClosed)
                 return;
