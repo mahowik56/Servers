@@ -54,6 +54,11 @@ namespace UTanksServer.Services
                 double avgPing = 0;
                 var users = Networking.server?.users;
                 if (users != null && users.Count > 0)
+                {
+                    var pingValues = users.Where(u => u.Ping > 0).Select(u => (double)u.Ping);
+                    if (pingValues.Any())
+                        avgPing = pingValues.Average();
+                }
                     avgPing = users.Where(u => u.Ping > 0).Average(u => (double)u.Ping);
 
                 Console.Clear();
