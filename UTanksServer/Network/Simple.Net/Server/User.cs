@@ -154,13 +154,11 @@ namespace UTanksServer.Network.Simple.Net.Server {
 
             Type eventType = HashCache.GetType(reader.hashCode);
             if (eventType == null) {
-                Console.WriteLine($"ERR: Unknown event code [hash: {reader.hashCode}]");
                 //try { socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, OnReceive, socket); }
                 //catch { return; }
                 return;
             }
             if (!Events.ContainsKey(reader.hashCode)) {
-                Console.WriteLine($"ERR: Got packet with no callback [name: {eventType.Name}, hash: {reader.hashCode}]");
                 //try { socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, OnReceive, socket); }
                 //catch { return; }
                 return;
@@ -179,7 +177,7 @@ namespace UTanksServer.Network.Simple.Net.Server {
                 ((Action<object>)eventHandler)(packetInstance);
             else if (callbackType == typeof(Action<User, object>))
                 ((Action<User, object>)eventHandler)(this, packetInstance);
-            else Console.WriteLine($"Got unknown event callback for packet! [name: {eventType.Name}, hash: {reader.hashCode}, callback: {eventHandler}]");
+            else { }
         }
 
         private void typedEmit(INetSerializable packet, NetWriter writer)
