@@ -118,6 +118,7 @@ namespace UTanksServer
             ManagerScope.InitManagerScope();
             InitializeDefaultDataObject.InitializeDataObjects();
             Networking.Start();
+            ServerMonitor.Start();
             //new UTServer();
 #region ClearScreen
             Func<Task> asyncUpd = async () =>
@@ -273,10 +274,42 @@ namespace UTanksServer
                         });
                         Console.WriteLine("All online" + all.ToString() + "\nIn battles: " + inbattle.ToString());
                         break;
+
                     case "bot":
                         if (input.Length < 2)
                         {
                             Console.WriteLine("bot commands: add <battleId> <team> <count>, remove <botId>, list");
+
+                    case "bots":
+                        if (input.Length < 2)
+                        {
+                            Console.WriteLine("bots commands: start <count>, stop, count");
+                            break;
+                        }
+                        switch (input[1].ToLower())
+                        {
+                            case "start":
+                                if (input.Length > 2 && int.TryParse(input[2], out int botCount))
+                                    BotManager.Start(botCount);
+                                else
+                                    Console.WriteLine("Usage: bots start <count>");
+                                break;
+                            case "stop":
+                                BotManager.Stop();
+                                break;
+                            case "count":
+                                Console.WriteLine($"Bots: {BotManager.Count}");
+                                break;
+                            default:
+                                Console.WriteLine("bots commands: start <count>, stop, count");
+                                break;
+                        }
+                        break;
+                    case "bot":
+                        if (input.Length < 2)
+                        {
+                            Console.WriteLine("bot commands: add <battleId> <team|teamId> <count>, remove <botId>, list");
+
                             break;
                         }
 
@@ -285,7 +318,11 @@ namespace UTanksServer
                             case "add":
                                 if (input.Length < 5)
                                 {
+
                                     Console.WriteLine("Syntax: bot add <battleId> <team> <count>");
+
+                                    Console.WriteLine("Syntax: bot add <battleId> <team|teamId> <count>");
+
                                     break;
                                 }
                                 try
@@ -311,6 +348,7 @@ namespace UTanksServer
                                         }
                                         teamId = teamPair.Key;
                                     }
+
                                     BotService.AddBots(battleId, teamId, count);
                                 }
                                 catch
@@ -337,7 +375,11 @@ namespace UTanksServer
                                     Console.WriteLine(id);
                                 break;
                             default:
+
                                 Console.WriteLine("bot commands: add <battleId> <teamId> <count>, remove <botId>, list");
+
+                                Console.WriteLine("bot commands: add <battleId> <team|teamId> <count>, remove <botId>, list");
+
                                 break;
                         }
                         break;

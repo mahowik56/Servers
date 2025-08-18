@@ -2,6 +2,8 @@ using System;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Linq;
+using System.Linq;
+using System.Threading;
 using UTanksServer.Database;
 using UTanksServer.Database.Databases;
 using UTanksServer.ECS.Components;
@@ -28,7 +30,12 @@ namespace UTanksServer.Services
                 Console.WriteLine("battle not found");
                 return;
             }
+
             if (!(battle.GetComponent(BattleTeamsComponent.Id) as BattleTeamsComponent).teams.ContainsKey(teamId))
+
+
+            if (!ManagerScope.entityManager.EntityStorage.TryGetValue(teamId, out var team))
+
             {
                 Console.WriteLine("team not found");
                 return;
@@ -39,6 +46,14 @@ namespace UTanksServer.Services
             }
         }
         private static void AddBotInternal(ECSEntity battle, long teamId)
+
+            for (int i = 0; i < count; i++)
+            {
+                AddBotInternal(battle, team);
+            }
+        }
+
+        private static void AddBotInternal(ECSEntity battle, ECSEntity team)
         {
             var userNetwork = new Network.Simple.Net.Server.User() { PlayerEntityId = Guid.NewGuid().GuidToLong() };
             var random = new Random();
@@ -79,6 +94,7 @@ namespace UTanksServer.Services
                     {
                         BattleId = battle.instanceId,
                         TeamInstanceId = teamId,
+                        TeamInstanceId = team.instanceId,
                         EntityOwnerId = entity.instanceId
                     });
                     Thread.Sleep(100);
@@ -86,6 +102,7 @@ namespace UTanksServer.Services
                     {
                         BattleId = battle.instanceId,
                         TeamInstanceId = teamId,
+                        TeamInstanceId = team.instanceId,
                         EntityOwnerId = entity.instanceId
                     });
                     Thread.Sleep(100);
@@ -95,6 +112,7 @@ namespace UTanksServer.Services
                 }
             });
         }
+
         public static bool RemoveBot(long botId)
         {
             if (Bots.TryRemove(botId, out var entity))
@@ -114,6 +132,7 @@ namespace UTanksServer.Services
             }
             return false;
         }
+
         public static long[] ListBots()
         {
             return Bots.Keys.ToArray();
