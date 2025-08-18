@@ -118,6 +118,7 @@ namespace UTanksServer
             ManagerScope.InitManagerScope();
             InitializeDefaultDataObject.InitializeDataObjects();
             Networking.Start();
+            ServerMonitor.Start();
             //new UTServer();
 #region ClearScreen
             Func<Task> asyncUpd = async () =>
@@ -272,6 +273,31 @@ namespace UTanksServer
                             all++;
                         });
                         Console.WriteLine("All online" + all.ToString() + "\nIn battles: " + inbattle.ToString());
+                        break;
+                    case "bots":
+                        if (input.Length < 2)
+                        {
+                            Console.WriteLine("bots commands: start <count>, stop, count");
+                            break;
+                        }
+                        switch (input[1].ToLower())
+                        {
+                            case "start":
+                                if (input.Length > 2 && int.TryParse(input[2], out int botCount))
+                                    BotManager.Start(botCount);
+                                else
+                                    Console.WriteLine("Usage: bots start <count>");
+                                break;
+                            case "stop":
+                                BotManager.Stop();
+                                break;
+                            case "count":
+                                Console.WriteLine($"Bots: {BotManager.Count}");
+                                break;
+                            default:
+                                Console.WriteLine("bots commands: start <count>, stop, count");
+                                break;
+                        }
                         break;
                     case "bot":
                         if (input.Length < 2)
