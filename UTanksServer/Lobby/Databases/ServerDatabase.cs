@@ -9,6 +9,7 @@ namespace UTanksServer.Database.Databases {
     public static class ServerDatabase {
         public static SQLiteConnection Connection;
         public static Servers Servers;
+        public static Battles Battles;
 
         public static async void Load() {
             string connectionString = "URI=file:" + Path.Join(GlobalProgramState.ConfigDir, "Servers.db");
@@ -16,10 +17,12 @@ namespace UTanksServer.Database.Databases {
             Connection = new SQLiteConnection(connectionString);
             await Connection.OpenAsync();
             Servers = await new Servers().Init();
+            Battles = await new Battles().Init();
         }
 
         public static async void Dispose() {
             Servers = null;
+            Battles = null;
             await Connection.CloseAsync();
         }
     }
