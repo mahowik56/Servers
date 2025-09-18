@@ -111,7 +111,7 @@ namespace UTanksServer
             //ZipExt.DecompressToDirectory(@"L:\UTanksServer\UTanksServer\bin\Debug\net5.0\Data\zippedconfig.zip", @"L:\UTanksServer\UTanksServer\bin\Debug\net5.0\Data\test", (prog) => { });
 #endregion
             Logger.Log("Config loaded!", "init");
-            //ServerDatabase.Load();
+            ServerDatabase.Load();
             ConstantService.Initialize();     
             //GlobalCachingSerialization.Init();//serialization not work heh
             UserDatabase.Load();
@@ -157,7 +157,13 @@ namespace UTanksServer
                 {
                     case "exit":
                         Networking.Stop();
-                        return;              
+                        return;
+                    case "restart":
+                        if (UTServer.Instance != null && UTServer.Instance.IsRunning)
+                            UTServer.Instance.Destroy(true);
+                        else
+                            new UTServer();
+                        break;
                     case "jtserver":
                         if (input.Length >= 2)
                         {
@@ -259,10 +265,62 @@ namespace UTanksServer
                     case "drops":
                         Console.WriteLine("not realized");
                         break;
+                    case "battle":
+                        if (input.Length < 2)
+                        {
+                            Console.WriteLine("battle commands: list");
+                            break;
+                        }
+
+                        switch (input[1].ToLower())
+                        {
+                            case "list":
+                                if (ServerDatabase.Battles == null)
+                                {
+                                    Console.WriteLine("Battle database is not initialized.");
+                                    break;
+                                }
+
+                                var storedBattles = await ServerDatabase.Battles.List();
+                                if (storedBattles.Count == 0)
+                                {
+                                    Console.WriteLine("No battles stored in the database.");
+                                    break;
+                                }
+
+                                foreach (var storedBattle in storedBattles)
+                                {
+                                    Console.WriteLine($"[{storedBattle.BattleId}] {storedBattle.CustomName} - {storedBattle.MapGroup} ({storedBattle.Mode})");
+                                }
+                                break;
+                            default:
+                                Console.WriteLine("battle commands: list");
+                                break;
+                        }
+                        break;
                     case "battles":
                         ManagerScope.entityManager.EntityStorage.Values.Where((x) => x.HasComponent(BattleComponent.Id)).ToList().ForEach(x => {
                             Console.WriteLine(x.instanceId.ToString() + "   " + x.GetComponent< BattleComponent>().BattleCustomName + "   " + x.GetComponent<BattleComponent>().BattleRealName);
                         });
+                        break;
+                    case "del":
+                        if (input.Length < 2)
+                        {
+                            Console.WriteLine("Usage: del <map_name>");
+                            break;
+                        }
+
+                        if (ServerDatabase.Battles == null)
+                        {
+                            Console.WriteLine("Battle database is not initialized.");
+                            break;
+                        }
+
+                        var removedCount = await ServerDatabase.Battles.RemoveByMapName(input[1]);
+                        if (removedCount == 0)
+                            Console.WriteLine($"No stored battles found for map '{input[1]}'.");
+                        else
+                            Console.WriteLine($"Removed {removedCount} stored battle entr{(removedCount == 1 ? "y" : "ies")} for map '{input[1]}'.");
                         break;
                     case "players":
                         int inbattle = 0;

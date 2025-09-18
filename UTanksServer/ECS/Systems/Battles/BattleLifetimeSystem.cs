@@ -3,6 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Core;
+using Newtonsoft.Json;
+using UTanksServer.Database.Databases;
+using UTanksServer.Database.Databases.ServerTables;
 using UTanksServer.ECS.Components;
 using UTanksServer.ECS.Components.Battle;
 using UTanksServer.ECS.Components.Battle.BattleComponents;
@@ -77,16 +81,148 @@ namespace UTanksServer.ECS.Systems.Battles
                 ManagerScope.entityManager.OnRemoveEntity(ManagerScope.entityManager.EntityStorage[gameplayEntity]);
             }
             ManagerScope.entityManager.OnRemoveEntity(battleEntity);
+            if (ServerDatabase.Battles != null)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await ServerDatabase.Battles.Remove(battleEntity.instanceId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError($"Failed to remove battle {battleEntity.instanceId} metadata: {ex.Message}", "BattleDB");
+                    }
+                });
+            }
         }
 
         public static void CreateBattle(CreateBattleEvent createBattleEvent)
         {
-            foreach(var battleEntity in new BattleTemplate().CreateBattleEntities(createBattleEvent))
+            if (!ManagerScope.entityManager.EntityStorage.TryGetValue(createBattleEvent.EntityOwnerId, out var ownerEntity))
             {
-                ManagerScope.entityManager.OnAddNewEntity(battleEntity);
-                battleEntity.GetComponent<BattleComponent>(BattleComponent.Id).MarkAsChanged();
-                //battleEntity.GetComponent<BattleSimpleInfoComponent>().MarkAsChanged(true);
+                Logger.LogWarn($"Battle creation request ignored. Owner entity '{createBattleEvent.EntityOwnerId}' not found.", "Battle");
+                return;
             }
+
+            var cooldown = ownerEntity.TryGetComponent<BattleCreationCooldownComponent>();
+            var nowSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            if (cooldown != null && cooldown.LastCreationUnixTimeSeconds > 0)
+            {
+                var elapsed = nowSeconds - cooldown.LastCreationUnixTimeSeconds;
+                if (elapsed < 30)
+                {
+                    Logger.LogWarn($"Player {ownerEntity.instanceId} attempted to create a battle before cooldown expired. {30 - elapsed} seconds remaining.", "Battle");
+                    return;
+                }
+            }
+
+            var createdEntities = new BattleTemplate().CreateBattleEntities(createBattleEvent);
+            if (createdEntities.Count == 0)
+                return;
+
+            ECSEntity battleEntity = null;
+            foreach (var entity in createdEntities)
+            {
+                ManagerScope.entityManager.OnAddNewEntity(entity);
+                if (entity.HasComponent(BattleComponent.Id))
+                {
+                    battleEntity = entity;
+                    entity.GetComponent<BattleComponent>(BattleComponent.Id).MarkAsChanged();
+                }
+            }
+
+            if (battleEntity == null)
+                return;
+
+            ownerEntity.AddOrChangeComponent(new BattleCreationCooldownComponent()
+            {
+                LastCreationUnixTimeSeconds = nowSeconds
+            });
+
+            SaveBattleToDatabase(battleEntity, createBattleEvent, nowSeconds);
+        }
+
+        static void SaveBattleToDatabase(ECSEntity battleEntity, CreateBattleEvent createBattleEvent, long createdAt)
+        {
+            if (ServerDatabase.Battles == null)
+                return;
+
+            var battleComponent = battleEntity.GetComponent<BattleComponent>(BattleComponent.Id);
+            var parametersPayload = new
+            {
+                createBattleEvent.BattleCustomName,
+                createBattleEvent.BattleRealName,
+                createBattleEvent.GameMapGroupName,
+                createBattleEvent.MapPath,
+                createBattleEvent.MapModel,
+                createBattleEvent.MapConfigPath,
+                createBattleEvent.MaxPlayers,
+                createBattleEvent.BattleTimeMinutes,
+                createBattleEvent.BattleWinGoalValue,
+                createBattleEvent.MinimalPlayerRankValue,
+                createBattleEvent.MaximalPlayerRankValue,
+                createBattleEvent.WeatherMode,
+                createBattleEvent.TimeMode,
+                createBattleEvent.BattleMode,
+                createBattleEvent.ListOfAcceptedConfigPathWeapon,
+                createBattleEvent.ListOfAcceptedConfigPathHull,
+                createBattleEvent.isProBattle,
+                createBattleEvent.isClosedBattle,
+                createBattleEvent.isParkourBattle,
+                createBattleEvent.isTournamentBattle,
+                createBattleEvent.enableUnlimitedUserSupply,
+                createBattleEvent.enableSuperDrop,
+                createBattleEvent.enableAutoPeaceOnSuperDrop,
+                createBattleEvent.enableMicroUpgrade,
+                createBattleEvent.enableDressingUp,
+                createBattleEvent.dressingUpTimeoutSeconds,
+                createBattleEvent.enableSupplyDrop,
+                createBattleEvent.enableCrystalDrop,
+                createBattleEvent.enablePlayerSupplies,
+                createBattleEvent.enablePlayerAutoBalance,
+                createBattleEvent.enableBattleAutoEnding,
+                createBattleEvent.enableTeamKilling,
+                createBattleEvent.enableResists,
+                createBattleEvent.enableModules,
+                createBattleEvent.enablePlayerSupplySeparation,
+                createBattleEvent.enableSupplyCooldown,
+                createBattleEvent.LuminosityStrength,
+                createBattleEvent.DamageScalingCoeficient,
+                createBattleEvent.HealthScalingCoeficient,
+                createBattleEvent.GravityScaling,
+                createBattleEvent.MassScaling,
+                createBattleEvent.isTestBoxBattle,
+                createBattleEvent.isCheatersBattle
+            };
+
+            var dbRow = new BattleDbRow
+            {
+                BattleId = battleEntity.instanceId,
+                CustomName = battleComponent.BattleCustomName,
+                RealName = battleComponent.BattleRealName,
+                MapGroup = createBattleEvent.GameMapGroupName,
+                MapPath = battleComponent.MapPath,
+                Mode = battleComponent.BattleMode,
+                OwnerEntityId = createBattleEvent.EntityOwnerId,
+                MaxPlayers = battleComponent.MaxPlayers,
+                MinRank = battleComponent.MinimalPlayerRankValue,
+                MaxRank = battleComponent.MaximalPlayerRankValue,
+                CreatedAt = createdAt,
+                ParametersJson = JsonConvert.SerializeObject(parametersPayload)
+            };
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await ServerDatabase.Battles.Upsert(dbRow);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError($"Failed to persist battle {battleEntity.instanceId} metadata: {ex.Message}", "BattleDB");
+                }
+            });
         }
 
         public static void BattleEnd(BattleEndEvent battleEndEvent)
