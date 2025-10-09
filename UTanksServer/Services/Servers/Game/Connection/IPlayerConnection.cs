@@ -1,16 +1,16 @@
+using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace UTanksServer.Services.Servers.Game.Connection {
-  public interface IPlayerConnection {
-    public bool IsConnected { get; }
+  public interface IPlayerConnection : IAsyncDisposable {
+    Player Player { get; }
+    bool IsConnected { get; }
 
-    public AsyncQueue<ICommand> CommandQueue { get; }
+    ValueTask InitializeAsync(Player player, GameServer server, CancellationToken token);
+    Task RunAsync(CancellationToken token);
 
-    public Task Init();
-    public Task ReceivePackets();
-    public Task SendPackets();
-
-    public void QueueCommands(params ICommand[] commands);
-    public Task SendCommands(params ICommand[] commands);
+    bool QueueCommands(params ICommand[] commands);
+    void Disconnect();
   }
 }

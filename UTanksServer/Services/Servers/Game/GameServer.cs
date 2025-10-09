@@ -1,86 +1,192 @@
-using System.Net;
-using System.Threading;
-using System.Net.Sockets;
-using System.Threading.Tasks;
+using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading;
+using System.Threading.Tasks;
 
 using Serilog;
 
-using UTanksServer.Extensions;
+using UTanksServer.Core.Logging;
+using UTanksServer.Core.Protocol;
+using UTanksServer.Diagnostics;
 using UTanksServer.Services.Servers.Game.Connection;
+using UTanksServer.Services.Servers.Game.Security;
+using UTanksServer.Services.Servers.Game.World;
 
 namespace UTanksServer.Services.Servers.Game {
   public interface IGameServer {
-    public Task Start();
+    Task StartAsync(CancellationToken cancellationToken);
   }
 
   public interface ICommand {
-    public Task OnReceive(Player player);
+    Task OnReceive(Player player);
   }
 
   [UTanksServer.ECS.ECSCore.Service]
-  public class GameServer : IGameServer {
-    private static readonly ILogger Logger = Log.Logger.ForType<GameServer>();
+  public sealed class GameServer : IGameServer, IAsyncDisposable {
+    private static readonly ILogger Logger = Log.Logger.ForContext<GameServer>();
 
     public IPEndPoint Endpoint { get; }
 
-    private readonly Socket _socket;
-    private readonly List<IPlayerConnection> _clients;
+    private readonly Socket _listener;
+    private readonly ConcurrentDictionary<Guid, PlayerSocketConnection> _connections = new ConcurrentDictionary<Guid, PlayerSocketConnection>();
+    private readonly GameServerConfig _config;
+    private readonly SendQuotaManager _quotaManager;
+    private readonly AntiFloodController _antiFlood = new AntiFloodController();
+    private readonly InterestManager _interestManager;
+    private readonly SnapshotCache _snapshotCache = new SnapshotCache();
 
-    private readonly IConfigService _configService;
+    private readonly CancellationTokenSource _cts = new CancellationTokenSource();
+
+    private Task? _acceptTask;
+    private Task? _tickTask;
 
     public GameServer(IConfigService configService) {
-      _configService = configService;
-
-      Endpoint = new IPEndPoint(_configService.GameServerConfig.Address, _configService.GameServerConfig.Port);
-
-      _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-      _clients = new List<IPlayerConnection>();
+      _config = configService.GameServerConfig;
+      Endpoint = new IPEndPoint(_config.Address, _config.Port);
+      _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+      _quotaManager = new SendQuotaManager(_config.GlobalSendQueueBytes);
+      _interestManager = new InterestManager(_config.InterestCellSize, _config.InterestRadius);
+      CommandCodecBootstrapper.EnsureInitialized();
     }
 
-    public async Task Start() {
-      _socket.Bind(Endpoint);
-      _socket.Listen();
+    public async Task StartAsync(CancellationToken cancellationToken) {
+      _listener.Bind(Endpoint);
+      _listener.Listen(_config.Backlog);
 
       ThreadPool.SetMinThreads(50, 50);
 
-      _ = Task.Factory.StartNew(async () => {
-        while(true) {
-          IPlayerConnection connection = await AcceptClient();
+      using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, cancellationToken);
+      CancellationToken token = linkedCts.Token;
 
-          _ = Task.Run(async () => await connection.ReceivePackets());
-          _ = Task.Run(async () => await connection.SendPackets());
-
-          _ = Task.Run(async () => {
-            await Task.Delay(1000); // TODO(Assasans): Find a better way to detect if it is HTTP request
-            await connection.Init();
-          });
-        }
-      }, TaskCreationOptions.LongRunning);
+      _acceptTask = Task.Run(() => AcceptLoopAsync(token), token);
+      _tickTask = Task.Run(() => TickLoopAsync(token), token);
 
       Logger.Information("Started game server: {Address}:{Port}", Endpoint.Address, Endpoint.Port);
-      Logger.Information("Initialized");
+      await Task.WhenAll(_acceptTask, _tickTask);
     }
 
-    private async Task<IPlayerConnection> AcceptClient() {
-      Logger.Verbose("Waiting for socket...");
+    public async ValueTask DisposeAsync() {
+      _cts.Cancel();
+      try {
+        _listener.Close();
+      } catch(SocketException) {
+      }
 
-      Socket clientSocket = await _socket.AcceptAsync();
+      if(_acceptTask != null) await _acceptTask.ConfigureAwait(false);
+      if(_tickTask != null) await _tickTask.ConfigureAwait(false);
 
+      foreach(PlayerSocketConnection connection in _connections.Values) {
+        await connection.DisposeAsync();
+      }
+    }
+
+    private async Task AcceptLoopAsync(CancellationToken token) {
+      Logger.Information("Accept loop started");
+      try {
+        while(!token.IsCancellationRequested) {
+          Socket clientSocket = await _listener.AcceptAsync();
+          token.ThrowIfCancellationRequested();
+          _ = Task.Run(() => HandleClientAsync(clientSocket, token), token);
+        }
+      } catch(OperationCanceledException) {
+      } catch(Exception exception) {
+        Logger.Error(exception, "Accept loop failed");
+      }
+    }
+
+    private async Task HandleClientAsync(Socket socket, CancellationToken token) {
       Player player = new Player();
-            //PlayerSocketConnection connection = new PlayerSocketConnection(clientSocket);
+      PlayerSocketConnection connection = new PlayerSocketConnection(socket, _config, _quotaManager, _antiFlood);
+      await connection.InitializeAsync(player, this, token);
+      player.Connection = connection;
 
-            //player.Connection = connection;
-            //connection.Player = player;
+      Guid id = Guid.NewGuid();
+      if(!_connections.TryAdd(id, connection)) {
+        Logger.Warning("Failed to track connection for player {Player}", player.LogDisplay);
+      }
 
-            //_clients.Add(connection);
+      Logger.Information("Accepted connection from {Endpoint}", socket.RemoteEndPoint);
 
-            //Logger.WithPlayer(connection.Player).Verbose(
-            //  "Accepted socket"
-            //);
+      try {
+        await connection.RunAsync(token);
+      } catch(Exception exception) {
+        Logger.Error(exception, "Connection loop failed");
+      } finally {
+        _connections.TryRemove(id, out _);
+        await connection.DisposeAsync();
+        Logger.Information("Connection closed: {Endpoint}", socket.RemoteEndPoint);
+      }
+    }
 
-            //return connection;
-            return null;
+    private async Task TickLoopAsync(CancellationToken token) {
+      TimeSpan tickInterval = TimeSpan.FromSeconds(1.0 / Math.Max(1, _config.TickRate));
+      Stopwatch stopwatch = Stopwatch.StartNew();
+
+      try {
+        while(!token.IsCancellationRequested) {
+          long startTicks = stopwatch.ElapsedTicks;
+
+          using IDisposable _ = PerfCounters.TrackDuration("tick.total");
+          RunTick();
+
+          long elapsedTicks = stopwatch.ElapsedTicks - startTicks;
+          double elapsedMilliseconds = elapsedTicks * 1000.0 / Stopwatch.Frequency;
+          PerfCounters.Increment("tick.duration", elapsedMilliseconds);
+
+          TimeSpan sleep = tickInterval - TimeSpan.FromMilliseconds(elapsedMilliseconds);
+          if(sleep > TimeSpan.Zero) {
+            try {
+              await Task.Delay(sleep, token);
+            } catch(TaskCanceledException) {
+              break;
+            }
+          }
+        }
+      } catch(OperationCanceledException) {
+      } catch(Exception exception) {
+        Logger.Error(exception, "Tick loop failed");
+      }
+    }
+
+    private void RunTick() {
+      ExecutePhase("tick.input", ProcessInputs);
+      ExecutePhase("tick.simulation", SimulateWorld);
+      ExecutePhase("tick.apply", ApplyResults);
+      ExecutePhase("tick.broadcast", BroadcastUpdates);
+    }
+
+    private void ExecutePhase(string name, Action action) {
+      using IDisposable _ = PerfCounters.TrackDuration(name);
+      action();
+    }
+
+    private void ProcessInputs() {
+      // Inputs are already processed in connection threads; gather metrics here if necessary.
+      PerfCounters.Increment("tick.inputs", _connections.Count);
+    }
+
+    private void SimulateWorld() {
+      // Placeholder for simulation logic. Parallelize heavy systems in the future.
+    }
+
+    private void ApplyResults() {
+      // Placeholder for applying simulation results to world state.
+    }
+
+    private void BroadcastUpdates() {
+      foreach(PlayerSocketConnection connection in _connections.Values) {
+        if(!connection.IsConnected) {
+          continue;
+        }
+
+        // For now we send heartbeat to keep the link alive and validate delta path.
+        connection.QueueCommands(new Core.Protocol.Commands.HeartbeatCommand { ClientTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() });
+      }
     }
   }
 }
